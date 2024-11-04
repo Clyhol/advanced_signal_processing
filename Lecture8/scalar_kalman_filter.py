@@ -24,7 +24,7 @@ sigma_Y = sigma_Z/(1-h**2)
 
 # generate data and initialize variables
 Z = np.random.normal(0, sigma_Z, n)
-#W = np.random.normal(0, sigma_W, n)
+W = np.random.normal(0, sigma_W, n)
 
 Y[0] = np.random.normal(0,sigma_Y)
 Y_hat[0] = 0
