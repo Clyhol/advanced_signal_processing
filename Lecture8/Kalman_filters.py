@@ -140,6 +140,67 @@ class ScalarKalmanFilter():
             Mean squared error.
         """
         return np.mean((Y - self.Y_hat)**2)
+    
+class KalmanFilter():
+    def __init__(self, n: int, system_features: int, obs_features: int, H: np.ndarray, A: np.ndarray, sigma_Z: float, sigma_W: float, Q_Z: np.ndarray = None, Q_W: np.ndarray = None, Q_Y: np.ndarray = None):
+        self.n = n
+        self.r = system_features
+        self.s = obs_features
+        self.H = H # r by r dimension
+        self.A = A # s by r dimension
+        self.sigma_Z = sigma_Z
+        self.sigma_W = sigma_W
+
+        
+        if Q_Z is None:
+            self.Q_Z = np.eye(self.r) * sigma_Z # process noise covariance
+        else:
+            self.Q_Z = Q_Z
+        if Q_W is None:
+            self.Q_W = np.eye(self.s) * sigma_W # observation noise covariance
+        else:
+            self.Q_W = Q_W
+        if Q_Y is None:
+            self.Q_Y = Q_Z # initial error covariance (assumption that the initial state is 0 and the uncertainty is the same as the process noise)
+        else:
+            self.Q_Y = Q_Y
+        
+        # preallocate memory
+        self.Y_hat = np.zeros((n, self.r))
+        self.X_hat = np.zeros((n, self.s))
+        self.R = np.zeros((n, self.r, self.r))
+        self.K = np.zeros((n, self.r, self.s))
+        
+        # initialize variables
+        self.Y_hat[0] = np.zeros(self.r) # initialize to 0
+        self.R[0] = self.Q_Y
+        
+    def _predict(self, i: int):
+        self.Y_hat[i] = self.H[i] @ self.Y_hat[i-1]
+        self.X_hat[i] = self.A[i] @ self.Y_hat[i]
+        self.R[i] = self.H[i] @ self.R[i-1] @ self.H[i].T + self.Q_Z
+    
+    def _update(self, i: int, X: np.ndarray):
+        self.K[i] = self.R[i] @ self.A[i].T @ np.linalg.inv(self.A[i] @ self.R[i] @ self.A[i].T + self.Q_W)
+        self.Y_hat[i] = self.Y_hat[i] + self.K[i] @ (X[i] - self.X_hat[i])
+        self.R[i] = (np.eye(self.K.shape[1]) - self.K[i] @ self.A[i]) @ self.R[i]
+        
+    def fit(self, n: int, X: np.ndarray, Y: np.ndarray = None):
+        for i in tqdm(range(1, n), desc="Fitting Kalman filter"):
+            self._predict(i)
+            self._update(i, X[i])
+        if Y is not None:
+            print(f"Fitted Kalman filter with MSE: {self._calculate_mse(Y)}")
+        else:
+            print("Fitted Kalman filter. Could not calculate MSE (no true states provided).")
+    
+    def get_predicted(self):
+        return self.Y_hat
+    
+    def _calculate_mse(self, Y: np.ndarray):
+        return np.mean((Y - self.Y_hat)**2)
+        
+    
 
 if __name__ == "__main__":
     n = 1000000
